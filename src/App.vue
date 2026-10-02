@@ -5,6 +5,7 @@ import BreathRing from './components/BreathRing.vue'
 import SettingsDialog from './components/SettingsDialog.vue'
 import { settings } from './lib/settings.ts'
 import { parseLocal, sumItems, type FoodItem } from './lib/nutrition.ts'
+import { itemsForDate } from './lib/day.ts'
 import { analyzeWithAi, analyzeWithCompanion, desktop } from './lib/ai.ts'
 import * as db from './lib/db.ts'
 
@@ -21,8 +22,18 @@ const sidebarOpen = ref(false)
 const listEl = ref<HTMLElement>()
 
 const filtered = computed(() => sessions.value.filter((s) => s.title.includes(search.value) || s.date.includes(search.value)))
-const dayItems = computed(() => messages.value.flatMap((m) => m.items ?? []))
+// 同一天其他记录的消息：查看期间不会变化，打开记录时加载一次
+const siblingMessages = ref<db.Message[]>([])
+const daySessions = computed(() => sessions.value.filter((s) => s.date === current.value?.date))
+const dayItems = computed(() =>
+  current.value ? itemsForDate(current.value.date, daySessions.value, [...siblingMessages.value, ...messages.value]) : [],
+)
 const dayTotal = computed(() => sumItems(dayItems.value))
+
+async function loadSiblings() {
+  const others = daySessions.value.filter((s) => s.id !== current.value?.id)
+  siblingMessages.value = (await Promise.all(others.map((s) => db.listMessages(s.id)))).flat()
+}
 const modeLabel = computed(() => ({ local: '本地食物库', ai: 'AI 直连', companion: 'Companion', desktop: 'AI 识别' })[settings.mode])
 const greeting = computed(() => {
   const h = new Date().getHours()
@@ -38,6 +49,11 @@ async function refresh() {
   sessions.value = await db.listSessions()
 }
 
+async function onImported() {
+  await refresh()
+  if (current.value) await open(current.value)
+}
+
 async function newSession() {
   const s: db.Session = { id: db.uid(), title: `${today()} 饮食记录`, date: today(), draft: '', updatedAt: Date.now() }
   await db.saveSession(s)
@@ -48,6 +64,7 @@ async function newSession() {
 async function open(s: db.Session) {
   current.value = s
   messages.value = await db.listMessages(s.id)
+  await loadSiblings()
   sidebarOpen.value = false
   scrollDown()
 }
@@ -82,6 +99,7 @@ async function remove(s: db.Session) {
   await db.deleteSession(s.id)
   await refresh()
   if (current.value?.id === s.id) sessions.value[0] ? await open(sessions.value[0]) : await newSession()
+  else await loadSiblings()
 }
 
 function scrollDown() {
@@ -279,7 +297,10 @@ onMounted(async () => {
       <div ref="listEl" class="flex-1 overflow-y-auto px-6 pb-8 md:px-10" aria-live="polite">
         <!-- 当日概览：呼吸环 + 宏量 -->
         <section class="rise mx-auto my-8 flex max-w-2xl flex-wrap items-center justify-center gap-x-12 gap-y-6">
-          <BreathRing :value="dayTotal.kcal" :goal="settings.dailyGoal" />
+          <div class="flex flex-col items-center gap-2">
+            <BreathRing :value="dayTotal.kcal" :goal="settings.dailyGoal" />
+            <p v-if="daySessions.length > 1" class="text-[0.68rem] text-faint">{{ dateLabel(current!.date) }} {{ daySessions.length }} 条记录合计</p>
+          </div>
           <dl class="grid grid-cols-3 gap-8 sm:grid-cols-1 sm:gap-4">
             <div v-for="[k, v] in [['蛋白质', dayTotal.protein], ['碳水', dayTotal.carbs], ['脂肪', dayTotal.fat]]" :key="k">
               <dt class="eyebrow">{{ k }}</dt>
@@ -345,7 +366,7 @@ onMounted(async () => {
     </main>
 
     <Transition name="sheet">
-      <SettingsDialog v-if="showSettings" @close="showSettings = false" @imported="refresh" />
+      <SettingsDialog v-if="showSettings" @close="showSettings = false" @imported="onImported" />
     </Transition>
   </div>
 </template>
