@@ -6,6 +6,9 @@ import SettingsDialog from './components/SettingsDialog.vue'
 import { settings } from './lib/settings.ts'
 import { parseLocal, sumItems, type FoodItem } from './lib/nutrition.ts'
 import { itemsForDate } from './lib/day.ts'
+import { actualByMeal, mealAt, mealToItems, MEALS, type MealKey } from './lib/plan.ts'
+import { reloadPlan } from './lib/planStore.ts'
+import PlanView from './components/PlanView.vue'
 import { analyzeWithAi, analyzeWithCompanion, desktop } from './lib/ai.ts'
 import * as db from './lib/db.ts'
 
@@ -30,6 +33,40 @@ const dayItems = computed(() =>
 )
 const dayTotal = computed(() => sumItems(dayItems.value))
 
+const view = ref<'log' | 'plan'>('log')
+const mealOf = (m: db.Message): MealKey => m.meal ?? mealAt(new Date(m.createdAt))
+const mealLabel = (k: MealKey) => MEALS.find((m) => m.key === k)!.label
+// 当天各餐实际摄入（同一天所有记录）
+const dayActual = computed(() => {
+  const ids = new Set(daySessions.value.map((s) => s.id))
+  const entries = [...siblingMessages.value, ...messages.value]
+    .filter((m) => ids.has(m.sessionId) && m.items?.length)
+    .map((m) => ({ meal: mealOf(m), items: m.items! }))
+  return actualByMeal(entries)
+})
+
+/** 计划页“按计划记录”：直接写入当前记录，切回记录页 */
+async function logMeal(meal: MealKey, planned: FoodItem[]) {
+  const s = current.value
+  if (!s || busy.value) return
+  const now = Date.now()
+  const user: db.Message = { id: db.uid(), sessionId: s.id, role: 'user', text: `${mealLabel(meal)}：按计划`, meal, createdAt: now }
+  const reply: db.Message = { id: db.uid(), sessionId: s.id, role: 'assistant', text: '', items: mealToItems(planned), meal, createdAt: now + 1 }
+  messages.value.push(user, reply)
+  await db.saveMessage(user)
+  await db.saveMessage(reply)
+  s.updatedAt = Date.now()
+  await db.saveSession(s)
+  await refresh()
+  view.value = 'log'
+  scrollDown()
+}
+
+async function setMeal(m: db.Message, meal: MealKey) {
+  m.meal = meal
+  await db.saveMessage(m)
+}
+
 async function loadSiblings() {
   const others = daySessions.value.filter((s) => s.id !== current.value?.id)
   siblingMessages.value = (await Promise.all(others.map((s) => db.listMessages(s.id)))).flat()
@@ -50,6 +87,7 @@ async function refresh() {
 }
 
 async function onImported() {
+  reloadPlan()
   await refresh()
   if (current.value) await open(current.value)
 }
@@ -166,7 +204,7 @@ async function send(retryText?: string, retryImage?: string) {
 
 /** 识别食物，错误转为带 error 标记的回复（可重试） */
 async function analyze(sessionId: string, text: string, img?: string): Promise<db.Message> {
-  const reply: db.Message = { id: db.uid(), sessionId, role: 'assistant', text: '', createdAt: Date.now() }
+  const reply: db.Message = { id: db.uid(), sessionId, role: 'assistant', text: '', meal: mealAt(new Date()), createdAt: Date.now() }
   try {
     if (settings.mode !== 'local') {
       const r =
@@ -290,7 +328,25 @@ onMounted(async () => {
         <button class="quiet grid h-9 w-9 place-items-center rounded-full md:hidden" aria-label="打开记录列表" @click="sidebarOpen = true">☰</button>
         <div class="min-w-0 flex-1">
           <p class="eyebrow">{{ greeting }}</p>
-          <h1 class="mt-1 truncate text-xl font-light tracking-wide">{{ current?.title }}</h1>
+          <h1 class="mt-1 truncate text-xl font-light tracking-wide">{{ view === 'plan' ? '饮食计划' : current?.title }}</h1>
+        </div>
+        <!-- 记录 / 计划 切换：下沉轨道 + 浮起滑块 -->
+        <div class="relative grid grid-cols-2 rounded-full p-1" style="box-shadow: var(--sunken)" role="tablist" aria-label="视图">
+          <span
+            class="absolute inset-y-1 left-1 w-[calc(50%-4px)] rounded-full bg-surface transition-transform duration-500"
+            :style="{ boxShadow: 'var(--raised-sm)', transform: view === 'plan' ? 'translateX(100%)' : 'none', transitionTimingFunction: 'var(--ease-spring)' }"
+            aria-hidden="true"
+          />
+          <button
+            v-for="[k, label] in [['log', '记录'], ['plan', '计划']] as const"
+            :key="k"
+            role="tab"
+            :aria-selected="view === k"
+            :class="['relative z-[1] px-4 py-1.5 text-xs transition-colors duration-300', view === k ? 'text-ink' : 'text-muted']"
+            @click="view = k"
+          >
+            {{ label }}
+          </button>
         </div>
       </header>
 
@@ -309,7 +365,9 @@ onMounted(async () => {
           </dl>
         </section>
 
-        <div class="mx-auto max-w-2xl space-y-5">
+        <PlanView v-if="view === 'plan'" :actual="dayActual" :day-total="dayTotal" @log-meal="logMeal" />
+
+        <div v-else class="mx-auto max-w-2xl space-y-5">
           <p v-if="!messages.length" class="rise py-6 text-center text-sm leading-loose text-faint" style="animation-delay: 160ms">
             慢慢来，告诉我你吃了什么<br />
             <span class="text-xs">“一碗米饭、150g 鸡胸肉和一个苹果”</span>
@@ -322,6 +380,19 @@ onMounted(async () => {
             </div>
             <div v-else class="w-full space-y-2.5">
               <MealCard v-if="m.items?.length" :items="m.items" @update="updateItems(m, $event)" />
+              <!-- 餐次标签：点击切换，用于计划对比 -->
+              <div v-if="m.items?.length" class="flex gap-1 px-1" role="radiogroup" aria-label="所属餐次">
+                <button
+                  v-for="k in MEALS"
+                  :key="k.key"
+                  role="radio"
+                  :aria-checked="mealOf(m) === k.key"
+                  :class="['rounded-full px-2.5 py-0.5 text-[0.68rem] transition-colors duration-300', mealOf(m) === k.key ? 'bg-sage-soft text-sage-deep' : 'text-faint hover:text-muted']"
+                  @click="setMeal(m, k.key)"
+                >
+                  {{ k.label }}
+                </button>
+              </div>
               <p v-if="m.text" :class="['px-2 text-sm leading-relaxed', m.error ? 'text-clay' : 'text-muted']">{{ m.text }}</p>
               <button v-if="m.error" class="tactile rounded-full px-4 py-1.5 text-xs" @click="retry(m)">重试</button>
             </div>
@@ -335,7 +406,7 @@ onMounted(async () => {
       </div>
 
       <!-- 输入区：悬浮的触感胶囊 -->
-      <footer v-if="current" class="px-6 pb-6 md:px-10">
+      <footer v-if="current && view === 'log'" class="px-6 pb-6 md:px-10">
         <div class="mx-auto max-w-2xl">
           <Transition name="sheet">
             <div v-if="image" class="relative mb-3 inline-block">

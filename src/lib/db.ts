@@ -1,6 +1,8 @@
 import { openDB, type DBSchema } from 'idb'
 import type { FoodItem } from './nutrition.ts'
 import { toPlain } from './plain.ts'
+import { PLAN_KEY } from './planStore.ts'
+import type { MealKey } from './plan.ts'
 
 export interface Message {
   id: string
@@ -9,6 +11,8 @@ export interface Message {
   text: string
   image?: string
   items?: FoodItem[]
+  /** 所属餐次；旧数据没有该字段时按 createdAt 推断 */
+  meal?: MealKey
   error?: boolean
   createdAt: number
 }
@@ -68,7 +72,8 @@ export async function deleteMessage(id: string) {
 /** 导出全部数据为 JSON（不含 API 密钥） */
 export async function exportAll(): Promise<string> {
   const db = await dbp
-  return JSON.stringify({ version: 1, sessions: await db.getAll('sessions'), messages: await db.getAll('messages') })
+  const plan = JSON.parse(localStorage.getItem(PLAN_KEY) || 'null')
+  return JSON.stringify({ version: 2, sessions: await db.getAll('sessions'), messages: await db.getAll('messages'), plan })
 }
 
 export async function importAll(json: string) {
@@ -79,4 +84,5 @@ export async function importAll(json: string) {
   for (const s of data.sessions) await tx.objectStore('sessions').put(s)
   for (const m of data.messages) await tx.objectStore('messages').put(m)
   await tx.done
+  if (data.plan && typeof data.plan === 'object') localStorage.setItem(PLAN_KEY, JSON.stringify(data.plan))
 }
