@@ -7,11 +7,17 @@ import { defaultConfig } from './config.ts'
 
 const cfg = { ...defaultConfig(), provider: { baseUrl: 'https://example.invalid/v1', apiKey: 'sk-SECRET-PROVIDER-KEY', model: 'test-model' } }
 const calls: { text: string; image?: string }[] = []
+const searches: string[] = []
 const server = createCompanionServer(
   () => cfg,
   async (_c, text, image) => {
     calls.push({ text, image })
     return { items: [{ name: '米饭', grams: 150, kcal: 174, protein: 3.9, fat: 0.5, carbs: 38.9 }], note: 'ok' }
+  },
+  async (q) => {
+    searches.push(q)
+    if (q === 'boom') throw new Error('上游失败')
+    return [{ code: '1', product_name: 'Whey', nutriments: { 'energy-kcal_100g': 390 } }]
   },
 )
 let port = 0
@@ -85,4 +91,20 @@ test('analyze 输入校验', async () => {
 
 test('未知路径 404', async () => {
   assert.equal((await call({ path: '/v1/chat/completions', method: 'POST', headers: auth, body: {} })).status, 404)
+})
+
+test('在线食物搜索：鉴权、参数校验、转发', async () => {
+  const auth = { Authorization: `Bearer ${cfg.accessKey}` }
+  assert.equal((await call({ path: '/api/foods?q=whey' })).status, 401)
+  assert.equal((await call({ path: '/api/foods?q=%20', headers: auth })).status, 400)
+  assert.equal((await call({ path: `/api/foods?q=${'a'.repeat(101)}`, headers: auth })).status, 400)
+
+  const ok = await call({ path: '/api/foods?q=' + encodeURIComponent('蛋白粉'), headers: auth })
+  assert.equal(ok.status, 200)
+  assert.equal(ok.json.hits[0].product_name, 'Whey')
+  assert.equal(searches.at(-1), '蛋白粉')
+
+  const bad = await call({ path: '/api/foods?q=boom', headers: auth })
+  assert.equal(bad.status, 502)
+  assert.match(bad.json.error, /上游失败/)
 })

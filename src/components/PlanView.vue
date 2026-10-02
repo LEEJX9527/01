@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { FOODS } from '../data/foods.ts'
+import { findFoodByName, searchFoods } from '../lib/foodLibrary.ts'
+import { customList } from '../lib/customFoods.ts'
 import { estimateTDEE, scaleFood, sumItems, type FoodItem, type Totals } from '../lib/nutrition.ts'
 import { createPlan, generateMeals, GOALS, MEALS, mealTarget, status, type Goal, type MealKey } from '../lib/plan.ts'
 import { planState } from '../lib/planStore.ts'
@@ -19,7 +20,8 @@ const query = ref('')
 
 const suggestions = computed(() => {
   const q = query.value.trim()
-  return (q ? FOODS.filter((f) => f.name.includes(q) || f.aliases?.some((a) => a.includes(q))) : FOODS.filter((f) => f.cat !== 'treat')).slice(0, 8)
+  void customList.value // 自定义食物变化时重新计算
+  return (q ? searchFoods(q) : searchFoods('').filter((f) => f.cat !== 'treat')).slice(0, 8)
 })
 
 function build() {
@@ -44,7 +46,7 @@ function updateMeal(key: MealKey, items: FoodItem[]) {
 }
 
 function addFood(key: MealKey, name: string) {
-  const ref = FOODS.find((f) => f.name === name)
+  const ref = findFoodByName(name)
   if (!ref || !planState.plan) return
   planState.plan.meals[key] = [...planState.plan.meals[key], scaleFood(ref, ref.serving)]
   adding.value = undefined

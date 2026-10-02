@@ -3,13 +3,16 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import MealCard from './components/MealCard.vue'
 import BreathRing from './components/BreathRing.vue'
 import SettingsDialog from './components/SettingsDialog.vue'
+import FoodLibrary from './components/FoodLibrary.vue'
+import { loadCustomFoods } from './lib/customFoods.ts'
 import { settings } from './lib/settings.ts'
-import { parseLocal, sumItems, type FoodItem } from './lib/nutrition.ts'
+import { sumItems, type FoodItem } from './lib/nutrition.ts'
 import { itemsForDate } from './lib/day.ts'
 import { actualByMeal, mealAt, mealToItems, MEALS, type MealKey } from './lib/plan.ts'
 import { reloadPlan } from './lib/planStore.ts'
 import PlanView from './components/PlanView.vue'
-import { analyzeWithAi, analyzeWithCompanion, desktop } from './lib/ai.ts'
+import { analyzeWithAi, analyzeWithCompanion, desktop, isDesktop, type AnalyzeResult } from './lib/ai.ts'
+import { analyzeLocalFirst } from './lib/fallback.ts'
 import * as db from './lib/db.ts'
 
 const today = () => new Date().toLocaleDateString('sv-SE') // YYYY-MM-DD
@@ -21,6 +24,7 @@ const search = ref('')
 const image = ref<string>()
 const busy = ref(false)
 const showSettings = ref(false)
+const showLibrary = ref(false)
 const sidebarOpen = ref(false)
 const listEl = ref<HTMLElement>()
 
@@ -87,6 +91,7 @@ async function refresh() {
 }
 
 async function onImported() {
+  await loadCustomFoods()
   reloadPlan()
   await refresh()
   if (current.value) await open(current.value)
@@ -202,6 +207,17 @@ async function send(retryText?: string, retryImage?: string) {
   }
 }
 
+/** 本地模式的 AI 补充：选择已配置的接口，均未配置时返回 undefined */
+async function fallbackAnalyzer(): Promise<((t: string) => Promise<AnalyzeResult>) | undefined> {
+  if (isDesktop) {
+    const st = await desktop.status().catch(() => undefined)
+    return st?.configured ? (t) => desktop.analyze(t) : undefined
+  }
+  if (settings.companionKey) return (t) => analyzeWithCompanion({ url: settings.companionUrl, accessKey: settings.companionKey }, t)
+  if (settings.apiKey) return (t) => analyzeWithAi(settings, t)
+  return undefined
+}
+
 /** 识别食物，错误转为带 error 标记的回复（可重试） */
 async function analyze(sessionId: string, text: string, img?: string): Promise<db.Message> {
   const reply: db.Message = { id: db.uid(), sessionId, role: 'assistant', text: '', meal: mealAt(new Date()), createdAt: Date.now() }
@@ -217,10 +233,10 @@ async function analyze(sessionId: string, text: string, img?: string): Promise<d
       reply.text = r.note || (r.items.length ? '' : '没有识别到食物')
     } else {
       if (img && !text) throw new Error('本地模式无法识别图片，请在设置中切换到 AI 识别，或用文字描述')
-      const r = parseLocal(text)
+      const r = await analyzeLocalFirst(text, settings.aiFallback ? await fallbackAnalyzer() : undefined)
       reply.items = r.items
-      reply.text = r.unknown.length ? `未在食物库中找到：${r.unknown.join('、')}` : ''
-      if (!r.items.length) reply.error = true
+      reply.text = r.note
+      reply.error = r.error
     }
   } catch (err) {
     reply.text = (err as Error).message
@@ -251,6 +267,7 @@ function onKey(e: KeyboardEvent) {
 }
 
 onMounted(async () => {
+  await loadCustomFoods().catch((err) => console.error('加载自定义食物失败', err))
   await refresh()
   const todays = sessions.value.find((s) => s.date === today())
   todays ? await open(todays) : await newSession()
@@ -317,7 +334,10 @@ onMounted(async () => {
         </TransitionGroup>
       </nav>
 
-      <button class="quiet mt-4 flex items-center gap-2 rounded-2xl px-4 py-3 text-sm" @click="showSettings = true">
+      <button class="quiet mt-4 flex items-center gap-2 rounded-2xl px-4 py-3 text-sm" @click="showLibrary = true">
+        <span aria-hidden="true">◍</span> 食物库
+      </button>
+      <button class="quiet flex items-center gap-2 rounded-2xl px-4 py-3 text-sm" @click="showSettings = true">
         <span aria-hidden="true">⚙</span> 设置
         <span class="ml-auto text-[0.68rem] text-faint">{{ modeLabel }}</span>
       </button>
@@ -438,6 +458,9 @@ onMounted(async () => {
 
     <Transition name="sheet">
       <SettingsDialog v-if="showSettings" @close="showSettings = false" @imported="onImported" />
+    </Transition>
+    <Transition name="sheet">
+      <FoodLibrary v-if="showLibrary" @close="showLibrary = false" />
     </Transition>
   </div>
 </template>

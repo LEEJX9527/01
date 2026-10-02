@@ -79,7 +79,7 @@ export async function analyzeWithCompanion(
 }
 
 // 浏览器无法区分“服务未启动”和“跨域被拒”，两种可能都提示
-function companionUnreachable() {
+export function companionUnreachable() {
   return `无法连接 Companion。请确认已运行 npm run companion -- start；如果已在运行，可能是当前网页来源 ${location.origin} 不在允许列表中，可执行 npm run companion -- origin add ${location.origin}`
 }
 
@@ -107,6 +107,7 @@ async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T
 export const desktop = {
   analyze: (text: string, image?: string) => invoke<AnalyzeResult>('analyze_food', { text, image: image ?? null }),
   status: () => invoke<DesktopProviderStatus>('provider_status'),
+  searchFoods: (query: string) => invoke<unknown[]>('search_foods', { query }),
   save: (baseUrl: string, model: string, apiKey?: string) =>
     invoke<DesktopProviderStatus>('save_provider', { baseUrl, model, apiKey: apiKey || null }),
 }

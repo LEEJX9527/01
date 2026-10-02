@@ -1,4 +1,5 @@
-import { FOODS, type FoodRef } from '../data/foods.ts'
+import type { FoodRef } from '../data/foods.ts'
+import { allFoods } from './foodLibrary.ts'
 
 export interface FoodItem {
   name: string
@@ -46,7 +47,7 @@ export function sumItems(items: FoodItem[]): Totals {
 function findFood(text: string): FoodRef | undefined {
   // 优先匹配最长名称，避免“面包”抢先匹配“全麦面包”
   let best: { ref: FoodRef; len: number } | undefined
-  for (const ref of FOODS) {
+  for (const ref of allFoods()) {
     for (const n of [ref.name, ...(ref.aliases ?? [])]) {
       if (text.includes(n) && (!best || n.length > best.len)) best = { ref, len: n.length }
     }

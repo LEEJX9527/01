@@ -10,6 +10,8 @@ export interface Settings extends AiSettings {
   companionUrl: string
   companionKey: string
   dailyGoal: number
+  /** 本地模式下，食物库识别不到的部分交给已配置的 AI 补充 */
+  aiFallback: boolean
 }
 
 const KEY = 'calorie-studio:settings'
@@ -21,6 +23,7 @@ const defaults: Settings = {
   companionUrl: 'http://127.0.0.1:8787',
   companionKey: '',
   dailyGoal: 2000,
+  aiFallback: true,
 }
 
 // 设置仅保存在 localStorage，不进入备份文件

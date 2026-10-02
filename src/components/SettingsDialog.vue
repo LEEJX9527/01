@@ -121,6 +121,13 @@ async function doImport(e: Event) {
           <p class="text-[0.7rem] leading-relaxed text-clay">密钥保存在浏览器中，请勿在公共设备上使用。</p>
         </section>
       </Transition>
+      <label v-if="settings.mode === 'local'" class="-mt-4 mb-8 flex cursor-pointer items-start gap-3 rounded-2xl p-4" style="box-shadow: var(--sunken)">
+        <input v-model="settings.aiFallback" type="checkbox" class="mt-0.5 accent-[var(--color-sage)]" />
+        <span class="text-sm">
+          识别不到时用 AI 补充
+          <span class="mt-0.5 block text-[0.68rem] leading-relaxed text-faint">只发送食物库里没有的部分。需要先在{{ isDesktop ? '「AI 识别」' : '「Companion」或「浏览器直连」' }}里配置过接口。</span>
+        </span>
+      </label>
       <p v-if="status && settings.mode !== 'local'" :class="['-mt-5 mb-8 text-xs', status.ok ? 'text-sage' : 'text-clay']" role="status">{{ status.text }}</p>
 
       <section class="mb-8 space-y-3">

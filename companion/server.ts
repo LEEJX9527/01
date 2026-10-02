@@ -6,10 +6,24 @@ import type { CompanionConfig } from './config.ts'
 const MAX_BODY = 8 * 1024 * 1024 // 压缩后的图片通常 < 1MB，留足余量
 const MAX_TEXT = 2000
 const RATE_LIMIT = 30 // 每分钟请求数
+const MAX_QUERY = 100
 
 type Analyzer = (cfg: CompanionConfig, text: string, image?: string) => Promise<AnalyzeResult>
 const defaultAnalyzer: Analyzer = (cfg, text, image) =>
   analyzeWithAi(cfg.provider, text, image, AbortSignal.timeout(60_000))
+
+/** 在线食物搜索：返回 Open Food Facts 原始 hits，URL 固定，只拼接关键词 */
+type FoodSearcher = (q: string) => Promise<unknown[]>
+const OFF_SEARCH = 'https://search.openfoodfacts.org/search'
+const OFF_FIELDS = 'code,product_name,product_name_zh,brands,serving_quantity,nutriments'
+const defaultSearcher: FoodSearcher = async (q) => {
+  const u = new URL(OFF_SEARCH)
+  u.search = new URLSearchParams({ q, page_size: '20', fields: OFF_FIELDS }).toString()
+  const res = await fetch(u, { headers: { 'User-Agent': 'CalorieStudio/0.1 (companion)' }, signal: AbortSignal.timeout(20_000) })
+  if (!res.ok) throw new Error(`在线食物库暂时不可用（${res.status}），请稍后再试`)
+  const body = (await res.json()) as { hits?: unknown[] }
+  return Array.isArray(body.hits) ? body.hits : []
+}
 
 class HttpError extends Error {
   status: number
@@ -42,8 +56,18 @@ async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> 
   throw new HttpError(400, '请求体不是有效 JSON')
 }
 
-export function createCompanionServer(getConfig: () => CompanionConfig, analyze: Analyzer = defaultAnalyzer): Server {
+export function createCompanionServer(
+  getConfig: () => CompanionConfig,
+  analyze: Analyzer = defaultAnalyzer,
+  search: FoodSearcher = defaultSearcher,
+): Server {
   const hits: number[] = []
+  const rateLimit = () => {
+    const now = Date.now()
+    while (hits.length && now - hits[0] > 60_000) hits.shift()
+    if (hits.length >= RATE_LIMIT) throw new HttpError(429, '请求过于频繁，请稍后再试')
+    hits.push(now)
+  }
 
   return createServer(async (req, res: ServerResponse) => {
     const cfg = getConfig()
@@ -77,11 +101,20 @@ export function createCompanionServer(getConfig: () => CompanionConfig, analyze:
         return send(200, { ok: true, model: cfg.provider.model, providerConfigured: Boolean(cfg.provider.apiKey) })
       }
 
+      if (req.method === 'GET' && url.pathname === '/api/foods') {
+        rateLimit()
+        const q = (url.searchParams.get('q') ?? '').trim()
+        if (!q) throw new HttpError(400, '请输入搜索关键词')
+        if (q.length > MAX_QUERY) throw new HttpError(400, '关键词过长')
+        try {
+          return send(200, { hits: await search(q) })
+        } catch (err) {
+          throw new HttpError(502, (err as Error).message.slice(0, 200))
+        }
+      }
+
       if (req.method === 'POST' && url.pathname === '/api/analyze') {
-        const now = Date.now()
-        while (hits.length && now - hits[0] > 60_000) hits.shift()
-        if (hits.length >= RATE_LIMIT) throw new HttpError(429, '请求过于频繁，请稍后再试')
-        hits.push(now)
+        rateLimit()
 
         const body = await readJson(req)
         const text = typeof body.text === 'string' ? body.text.slice(0, MAX_TEXT) : ''

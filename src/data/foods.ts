@@ -1,10 +1,17 @@
+import { SUPPLEMENTS } from './supplements.ts'
+
 // 常见食物营养数据（每 100g 可食部分），参考《中国食物成分表》近似值
-export type FoodCategory = 'staple' | 'protein' | 'veg' | 'fruit' | 'dairy' | 'nut' | 'treat'
+export type FoodCategory = 'staple' | 'protein' | 'veg' | 'fruit' | 'dairy' | 'nut' | 'treat' | 'supplement'
 
 export interface FoodRef {
   name: string
   aliases?: string[]
   cat: FoodCategory
+  /** 数据来源：内置 / 用户录入 / Open Food Facts */
+  source?: 'builtin' | 'custom' | 'off'
+  /** 自定义食物的 id */
+  id?: string
+  brand?: string
   kcal: number
   protein: number
   fat: number
@@ -62,4 +69,16 @@ export const FOODS: FoodRef[] = [
   { name: '巧克力', cat: 'treat', kcal: 589, protein: 4.3, fat: 40.1, carbs: 53.4, serving: 30 },
 ]
 
-export const findFoodByName = (name: string) => FOODS.find((f) => f.name === name)
+/** 内置库：常见食物 + 补剂与健身食品 */
+export const BUILTIN_FOODS: FoodRef[] = [...FOODS, ...SUPPLEMENTS]
+
+export const CATEGORY_LABEL: Record<FoodCategory, string> = {
+  staple: '主食',
+  protein: '肉蛋豆',
+  veg: '蔬菜',
+  fruit: '水果',
+  dairy: '奶类',
+  nut: '坚果',
+  treat: '零食饮料',
+  supplement: '补剂',
+}

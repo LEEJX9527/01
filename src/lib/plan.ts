@@ -1,4 +1,5 @@
-import { FOODS, findFoodByName, type FoodCategory } from '../data/foods.ts'
+import type { FoodCategory } from '../data/foods.ts'
+import { allFoods, findFoodByName } from './foodLibrary.ts'
 import { scaleFood, sumItems, type FoodItem, type Totals } from './nutrition.ts'
 
 export type Goal = 'lose' | 'maintain' | 'gain'
@@ -88,7 +89,7 @@ export function generateMeals(targets: PlanTargets, seed: number): Record<MealKe
     const budget = mealTarget(targets, key)
     meals[key] = TEMPLATES[key].map(({ cat, share }) => {
       // 同一天尽量不重复
-      const pool = FOODS.filter((f) => f.cat === cat)
+      const pool = allFoods().filter((f) => f.cat === cat)
       const fresh = pool.filter((f) => !used.has(f.name))
       const list = fresh.length ? fresh : pool
       const ref = list[Math.floor(rand() * list.length)]
