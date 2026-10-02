@@ -1,0 +1,23 @@
+# 依赖与构建产物
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/gen/
+
+# 本地日志与临时文件
+*.log
+companion-log.txt
+check-log.txt
+.DS_Store
+Thumbs.db
+
+# 编辑器
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# 环境变量与密钥（项目本身不在这里存密钥，以防万一）
+.env
+.env.*
+companion.json
+provider.json

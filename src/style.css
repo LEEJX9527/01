@@ -1,0 +1,185 @@
+@import "tailwindcss";
+
+/* ── 设计令牌：暖纸底色 + 鼠尾草绿，低饱和、低对比的安静色板 ── */
+@theme {
+  --color-paper: #f3f1ec;
+  --color-surface: #faf9f6;
+  --color-ink: #2b2a27;
+  --color-muted: #8a867d;
+  --color-faint: #b9b5ab;
+  --color-line: rgb(43 42 39 / 0.07);
+  --color-sage: #5f8f72;
+  --color-sage-deep: #4a7a5e;
+  --color-sage-soft: #e4ece6;
+  --color-clay: #c46a4f;
+  --color-clay-soft: #f5e6e0;
+  --font-sans: "HarmonyOS Sans SC", "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif;
+}
+
+:root {
+  /* 呼吸节律：吸气 3.5s、呼气 3.5s */
+  --breath: 7s;
+  --ease-breath: cubic-bezier(0.45, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* 触觉阴影：顶部高光 + 近处接触阴影 + 远处柔和投影 */
+  --raised: inset 0 1px 0 rgb(255 255 255 / 0.85), 0 1px 2px rgb(43 42 39 / 0.06), 0 10px 28px -14px rgb(43 42 39 / 0.22);
+  --raised-hover: inset 0 1px 0 rgb(255 255 255 / 0.9), 0 2px 4px rgb(43 42 39 / 0.06), 0 16px 36px -16px rgb(43 42 39 / 0.26);
+  --pressed: inset 0 2px 5px rgb(43 42 39 / 0.12), inset 0 0 0 1px rgb(43 42 39 / 0.04);
+  --sunken: inset 0 1px 3px rgb(43 42 39 / 0.08), inset 0 0 0 1px rgb(43 42 39 / 0.05);
+}
+
+html,
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: 0.01em;
+}
+
+::selection {
+  background: var(--color-sage-soft);
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 触觉按钮：悬停微浮、按下下沉 ── */
+.tactile {
+  background: var(--color-surface);
+  box-shadow: var(--raised);
+  transition:
+    transform 240ms var(--ease-spring),
+    box-shadow 240ms var(--ease-out),
+    background-color 240ms var(--ease-out),
+    opacity 240ms var(--ease-out);
+}
+.tactile:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--raised-hover);
+}
+.tactile:active:not(:disabled) {
+  transform: translateY(1px) scale(0.97);
+  box-shadow: var(--pressed);
+  transition-duration: 90ms;
+}
+.tactile:disabled {
+  opacity: 0.45;
+  box-shadow: var(--sunken);
+  cursor: not-allowed;
+}
+.tactile.is-accent {
+  background: var(--color-sage);
+  color: white;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.22), 0 1px 2px rgb(74 122 94 / 0.25), 0 10px 24px -12px rgb(74 122 94 / 0.55);
+}
+.tactile.is-accent:hover:not(:disabled) {
+  background: var(--color-sage-deep);
+}
+.tactile.is-accent:disabled {
+  background: var(--color-faint);
+  box-shadow: none;
+}
+
+/* 安静按钮：无底色，按下时才浮现触感 */
+.quiet {
+  color: var(--color-muted);
+  transition:
+    color 200ms var(--ease-out),
+    background-color 200ms var(--ease-out),
+    transform 200ms var(--ease-spring);
+}
+.quiet:hover {
+  color: var(--color-ink);
+  background: rgb(43 42 39 / 0.04);
+}
+.quiet:active {
+  transform: scale(0.94);
+  background: rgb(43 42 39 / 0.07);
+}
+
+/* ── 内凹输入框 ── */
+.field {
+  width: 100%;
+  border-radius: 14px;
+  background: var(--color-paper);
+  box-shadow: var(--sunken);
+  padding: 0.7rem 0.95rem;
+  font-size: 0.875rem;
+  color: var(--color-ink);
+  transition: box-shadow 320ms var(--ease-out), background-color 320ms var(--ease-out);
+}
+.field::placeholder {
+  color: var(--color-faint);
+}
+.field:focus {
+  outline: none;
+  background: var(--color-surface);
+  box-shadow: var(--sunken), 0 0 0 4px rgb(95 143 114 / 0.14);
+}
+
+/* 统一可见焦点 */
+:where(button, a, label, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid rgb(95 143 114 / 0.55);
+  outline-offset: 3px;
+  border-radius: 12px;
+}
+
+.card {
+  background: var(--color-surface);
+  border-radius: 22px;
+  box-shadow: var(--raised);
+}
+
+.eyebrow {
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  color: var(--color-muted);
+}
+
+/* ── 呼吸动效 ── */
+@keyframes breathe {
+  0%, 100% { transform: scale(1); opacity: 0.55; }
+  50% { transform: scale(1.06); opacity: 0.9; }
+}
+@keyframes breathe-soft {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.015); }
+}
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); filter: blur(2px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+@keyframes dot {
+  0%, 100% { transform: scale(0.6); opacity: 0.35; }
+  50% { transform: scale(1); opacity: 1; }
+}
+
+.breathe { animation: breathe var(--breath) var(--ease-breath) infinite; }
+.breathe-soft { animation: breathe-soft var(--breath) var(--ease-breath) infinite; }
+.rise { animation: rise 640ms var(--ease-out) both; }
+.dot { animation: dot 1.6s var(--ease-breath) infinite; }
+.dot:nth-child(2) { animation-delay: 0.2s; }
+.dot:nth-child(3) { animation-delay: 0.4s; }
+
+/* Vue 过渡 */
+.fade-enter-active, .fade-leave-active { transition: opacity 360ms var(--ease-out); }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+.sheet-enter-active { transition: opacity 420ms var(--ease-out), transform 520ms var(--ease-spring); }
+.sheet-leave-active { transition: opacity 240ms var(--ease-out), transform 240ms var(--ease-out); }
+.sheet-enter-from, .sheet-leave-to { opacity: 0; transform: translateY(14px) scale(0.98); }
+
+/* 尊重“减少动态效果”系统偏好 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* 细滚动条 */
+* { scrollbar-width: thin; scrollbar-color: rgb(43 42 39 / 0.14) transparent; }
