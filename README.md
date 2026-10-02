@@ -4,6 +4,8 @@
 
 技术栈：Vue 3 · TypeScript · Tailwind CSS v4 · Vite · Tauri v2（Rust）
 
+> 🔗 **在线体验**：<a href="https://leejx9527.github.io/01/" target="_blank">leejx9527.github.io/01</a>（默认本地食物库模式，离线可用，无需密钥）
+
 ## 识别方式
 
 | 方式 | 说明 | API 密钥存放位置 |
@@ -14,6 +16,32 @@
 | 浏览器直连 | 网页直接调用接口，仅限自用设备 | 浏览器 localStorage |
 
 数据保存在本地 IndexedDB，可在设置中导出 JSON 备份（不含密钥）。
+
+## 桌面端
+
+下载页（含图文安装指引、任意历史版本入口）：**[leejx9527.github.io/01/download.html](https://leejx9527.github.io/01/download.html)**
+
+**macOS（Apple Silicon）推荐一行命令安装**——终端 curl 下载不触发 Gatekeeper，全程零警告：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/LEEJX9527/01/main/scripts/install-desktop.sh | sh
+```
+
+浏览器直接下载 DMG 的用户，首次打开需放行一次（安装包未做平台签名/公证，属开源免签名软件的正常提示，详见下载页说明）：
+
+- **macOS**：系统设置 → 隐私与安全性 → 下拉点「仍要打开」；或终端执行 `xattr -cr /Applications/Calorie\ Studio.app`
+- **Windows**：SmartScreen 蓝色提示点「更多信息 → 仍要运行」
+
+## 发布
+
+- **网页版**：push 到 `main` 自动构建并部署 GitHub Pages（首次需在 Settings → Pages → Source 选 "GitHub Actions"）
+- **桌面端**：同步三处版本号（`package.json` / `src-tauri/tauri.conf.json` / `src-tauri/Cargo.toml`）后打 tag 即自动构建 macOS DMG + Windows 安装包并发布 Release：
+
+```bash
+git tag v0.2.0 && git push origin v0.2.0
+```
+
+资产命名契约（下载页与安装脚本按此解析）：`Calorie-Studio_<版本>_aarch64.dmg`、`Calorie-Studio_<版本>_x64-setup.exe`
 
 ## 开发
 
@@ -49,6 +77,9 @@ src/                前端（Vue）
   data/foods.ts     本地食物库
 companion/          Node 本地后端，零运行时依赖
 src-tauri/          桌面端 Rust 后端
+public/download.html 桌面版下载页（静态，零依赖）
+scripts/            安装脚本（macOS 一行安装）
+.github/workflows/  CI：Pages 自动部署 + tag 触发的 Release 构建
 ```
 
 ## 说明

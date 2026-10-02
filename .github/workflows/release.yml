@@ -1,0 +1,170 @@
+# Desktop Release: 打 v* tag 时构建 macOS / Windows 安装包并发布 GitHub Release
+#
+# 触发：
+# - git push tag vX.Y.Z  → 校验版本 → 建 Release → 双平台构建 → 上传资产
+# - workflow_dispatch    → 只构建 + 上传 workflow artifact（验证用，不碰 Release）
+#
+# 免签名路线：无签名凭据，GITHUB_TOKEN 即可，未签名 app 的放行说明见
+# .github/release-notes.md 与下载页 public/download.html
+#
+# 资产命名契约（下载页 download.html 与 scripts/install-desktop.sh 按后缀解析）：
+#   Calorie-Studio_<ver>_aarch64.dmg     macOS (Apple Silicon)
+#   Calorie-Studio_<ver>_x64-setup.exe   Windows (NSIS)
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write # 创建 Release 与上传资产
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 1: 质量门禁 + 版本一致性校验 + 创建 Release（Release 只建一次，避免 matrix 竞态）
+  # ─────────────────────────────────────────────────────────────────────────
+  prepare:
+    name: Prepare release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # 门禁：测试不过不发版（build:web 自带 vue-tsc 类型检查）
+      - name: Test
+        run: npm test
+
+      - name: Resolve version
+        id: ver
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=$(jq -r .version src-tauri/tauri.conf.json)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Verify version matches tag (push only)
+        if: github.event_name == 'push'
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.ver.outputs.version }}"
+          CONF=$(jq -r .version src-tauri/tauri.conf.json)
+          CARGO=$(grep -m1 '^version' src-tauri/Cargo.toml | sed -E 's/^version = "([^"]+)".*/\1/')
+          echo "tag=$TAG tauri.conf.json=$CONF Cargo.toml=$CARGO"
+          if [ "$TAG" != "$CONF" ] || [ "$TAG" != "$CARGO" ]; then
+            echo "::error::版本号不一致：tag=$TAG，tauri.conf.json=$CONF，Cargo.toml=$CARGO。请先同步三处版本号。"
+            exit 1
+          fi
+
+      - name: Render release notes
+        run: |
+          sed "s/{{VERSION}}/${{ steps.ver.outputs.version }}/g" .github/release-notes.md > /tmp/release-notes.md
+
+      - name: Create release (idempotent)
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "::notice::Release $GITHUB_REF_NAME 已存在，复用（资产将覆盖上传）"
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --title "Calorie Studio v${{ steps.ver.outputs.version }}" \
+              --notes-file /tmp/release-notes.md
+          fi
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 2: 双平台矩阵构建（tauri.conf.json 的 bundle.targets 为 "all"，
+  #         每平台只产出本平台可用的格式；CI 里再用 --bundles 显式钉死）
+  # ─────────────────────────────────────────────────────────────────────────
+  build:
+    name: Build ${{ matrix.name }}
+    needs: prepare
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: macOS, os: macos-latest, bundles: dmg }
+          - { name: Windows, os: windows-latest, bundles: nsis }
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          shared-key: ${{ matrix.os }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      # beforeBuildCommand（tauri.conf.json 已配置 npm run build:web）会自动产出 dist/
+      - name: Build desktop bundles
+        run: npx tauri build --bundles ${{ matrix.bundles }}
+
+      - name: Collect & rename artifacts
+        shell: bash
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          BUNDLE=src-tauri/target/release/bundle
+          OUT=release-assets
+          mkdir -p "$OUT"
+          case "${{ runner.os }}" in
+            macOS)
+              mv "$BUNDLE"/dmg/*_aarch64.dmg "$OUT/Calorie-Studio_${VERSION}_aarch64.dmg"
+              ;;
+            Windows)
+              mv "$BUNDLE"/nsis/*-setup.exe "$OUT/Calorie-Studio_${VERSION}_x64-setup.exe"
+              ;;
+          esac
+          ls -la "$OUT"
+
+      # 必须显式 bash：Windows 默认 shell 是 pwsh，`$VAR` 取不到环境变量
+      # （曾导致 gh release upload "" → "release not found"）
+      - name: Upload to release (tag push)
+        if: github.event_name == 'push'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$GITHUB_REF_NAME" release-assets/* --clobber
+
+      - name: Upload as workflow artifact (manual run)
+        if: github.event_name != 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.name }}
+          path: release-assets/*
+          retention-days: 7
