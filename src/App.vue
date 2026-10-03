@@ -337,6 +337,15 @@ onMounted(async () => {
       <button class="quiet mt-4 flex items-center gap-2 rounded-2xl px-4 py-3 text-sm" @click="showLibrary = true">
         <span aria-hidden="true">◍</span> 食物库
       </button>
+      <a
+        v-if="!isDesktop"
+        class="quiet flex items-center gap-2 rounded-2xl px-4 py-3 text-sm"
+        href="download.html"
+        aria-label="打开桌面版下载页（新标签页）"
+        target="_blank"
+      >
+        <span aria-hidden="true">⤓</span> 桌面版下载
+      </a>
       <button class="quiet flex items-center gap-2 rounded-2xl px-4 py-3 text-sm" @click="showSettings = true">
         <span aria-hidden="true">⚙</span> 设置
         <span class="ml-auto text-[0.68rem] text-faint">{{ modeLabel }}</span>

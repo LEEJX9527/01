@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f3f1ec" />
+    <title>下载 · Calorie Studio</title>
+    <link rel="icon" href="./favicon.svg" />
+    <style>
+      /* 设计令牌与 src/style.css 保持一致 */
+      :root {
+        --paper: #f3f1ec;
+        --surface: #faf9f6;
+        --ink: #2b2a27;
+        --muted: #8a867d;
+        --faint: #b9b5ab;
+        --sage: #5f8f72;
+        --sage-deep: #4a7a5e;
+        --sage-soft: #e4ece6;
+        --clay: #c46a4f;
+        --clay-soft: #f5e6e0;
+        --raised: inset 0 1px 0 rgb(255 255 255 / 0.85), 0 1px 2px rgb(43 42 39 / 0.06), 0 10px 28px -14px rgb(43 42 39 / 0.22);
+        --sunken: inset 0 1px 3px rgb(43 42 39 / 0.08), inset 0 0 0 1px rgb(43 42 39 / 0.05);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font-family: "HarmonyOS Sans SC", "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif;
+        letter-spacing: 0.01em;
+        -webkit-font-smoothing: antialiased;
+      }
+      .wrap { max-width: 46rem; margin: 0 auto; padding: 0 1.5rem 5rem; }
+      a { color: var(--sage-deep); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+
+      .top { display: flex; justify-content: space-between; align-items: center; padding: 1.75rem 0 .5rem; font-size: .9rem; color: var(--muted); }
+      .brand { display: flex; align-items: center; gap: .6rem; color: var(--ink); }
+      .brand i { width: .6rem; height: .6rem; border-radius: 50%; background: var(--sage); display: inline-block; }
+
+      .hero { text-align: center; padding: 3.5rem 0 2.5rem; }
+      .hero h1 { font-weight: 300; font-size: 1.9rem; letter-spacing: .06em; margin: 0 0 .6rem; }
+      .hero p { color: var(--muted); font-size: .95rem; line-height: 1.8; margin: 0; }
+      .ver { font-size: .8rem; color: var(--faint); margin-top: .4rem; min-height: 1.2em; }
+
+      .btn {
+        display: inline-block; padding: .85rem 2.2rem; border-radius: 999px;
+        background: var(--surface); box-shadow: var(--raised); color: var(--ink);
+        font-size: .95rem; transition: transform .2s, box-shadow .2s;
+      }
+      .btn:hover { text-decoration: none; transform: translateY(-1px); }
+      .btn.primary { background: var(--sage); color: #fff; }
+      .hero .actions { margin-top: 2rem; display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+      .size { font-size: .75rem; color: var(--faint); margin-left: .5rem; }
+
+      .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1.25rem; margin-top: 2rem; }
+      .card {
+        background: var(--surface); border-radius: 24px; padding: 1.6rem 1.5rem;
+        box-shadow: var(--raised); display: flex; flex-direction: column; gap: .9rem;
+      }
+      .card h2 { font-size: 1rem; font-weight: 500; margin: 0; display: flex; align-items: center; gap: .5rem; }
+      .card .os { font-size: 1.3rem; }
+      .card p { font-size: .85rem; color: var(--muted); line-height: 1.8; margin: 0; flex: 1; }
+      .card .btn { text-align: center; }
+
+      section.guide { margin-top: 3rem; }
+      section.guide h2 { font-weight: 400; font-size: 1.05rem; margin: 0 0 1rem; }
+      section.guide ol, section.guide ul { color: var(--muted); font-size: .88rem; line-height: 2; }
+      code, pre {
+        font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        font-size: .82rem; background: var(--paper); border-radius: 8px; padding: .15em .45em;
+      }
+      pre { display: block; padding: .9rem 1.1rem; overflow-x: auto; box-shadow: var(--sunken); color: var(--ink); }
+      .warn { background: var(--clay-soft); color: var(--clay); border-radius: 16px; padding: .9rem 1.2rem; font-size: .85rem; line-height: 1.8; margin: 1.5rem 0; }
+      footer { margin-top: 4rem; font-size: .78rem; color: var(--faint); text-align: center; line-height: 2; }
+      .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="top">
+        <a class="brand" href="./"><i aria-hidden="true"></i>Calorie Studio</a>
+        <a href="https://github.com/LEEJX9527/01">GitHub</a>
+      </div>
+
+      <div class="hero">
+        <h1>下载 Calorie Studio</h1>
+        <p>本地优先的食物热量计算工具，数据全部存在你自己的设备上</p>
+        <p class="ver" id="ver" aria-live="polite"></p>
+        <div class="actions">
+          <a class="btn primary" id="hero-btn" href="https://github.com/LEEJX9527/01/releases">正在检测适合的版本…</a>
+          <a class="btn" href="https://github.com/LEEJX9527/01/releases">所有版本</a>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <h2><span class="os" aria-hidden="true">&#63743;</span>macOS</h2>
+          <p>Apple Silicon（M 系列芯片）。也可用下方一行命令安装，全程零安全警告。</p>
+          <a class="btn" data-asset="mac" href="https://github.com/LEEJX9527/01/releases">下载 DMG<span class="size" data-size="mac"></span></a>
+        </div>
+        <div class="card">
+          <h2><span class="os" aria-hidden="true">⊞</span>Windows</h2>
+          <p>64 位安装包（NSIS）。首次运行如有蓝色安全提示，点「更多信息 → 仍要运行」。</p>
+          <a class="btn" data-asset="win" href="https://github.com/LEEJX9527/01/releases">下载安装包<span class="size" data-size="win"></span></a>
+        </div>
+        <div class="card">
+          <h2><span class="os" aria-hidden="true">◍</span>浏览器在线版</h2>
+          <p>无需安装，打开即用。本地食物库离线识别，数据存浏览器 IndexedDB。</p>
+          <a class="btn" href="./">打开在线版</a>
+        </div>
+      </div>
+
+      <div class="warn">
+        安装包未做平台签名 / 公证（个人开源项目），首次打开时的安全提示属正常现象，按下面的说明放行一次即可。
+      </div>
+
+      <section class="guide">
+        <h2>macOS 安装</h2>
+        <p style="color: var(--muted); font-size: .88rem; line-height: 1.8; margin: 0 0 1rem;">
+          推荐终端一行命令安装——命令行 curl 下载的文件不带隔离属性，Gatekeeper 不检查，未签名 app 全程零警告：
+        </p>
+        <pre><code>curl -fsSL https://raw.githubusercontent.com/LEEJX9527/01/main/scripts/install-desktop.sh | sh</code></pre>
+        <p style="color: var(--muted); font-size: .88rem; line-height: 1.8; margin: 1.2rem 0 .6rem;">
+          浏览器直接下载 DMG 的用户，安装后首次打开被拦截时，二选一：
+        </p>
+        <ol>
+          <li><strong>系统设置</strong> → <strong>隐私与安全性</strong> → 下拉到「安全性」一节 → 点 Calorie Studio 旁的「<strong>仍要打开</strong>」；</li>
+          <li>或终端执行 <code>xattr -cr /Applications/Calorie\ Studio.app</code> 后正常打开。</li>
+        </ol>
+      </section>
+
+      <section class="guide">
+        <h2>Windows 安装</h2>
+        <ol>
+          <li>运行下载的 <code>-setup.exe</code>，按引导完成安装；</li>
+          <li>首次运行如出现蓝色「Windows 已保护你的电脑」提示：点「<strong>更多信息</strong>」→「<strong>仍要运行</strong>」。</li>
+        </ol>
+      </section>
+
+      <section class="guide">
+        <h2>常见问题</h2>
+        <ul>
+          <li><strong>Intel Mac 能装吗？</strong> 目前只提供 Apple Silicon 包，Intel 机型建议使用在线版。</li>
+          <li><strong>需要填 API 密钥吗？</strong> 不需要。默认「本地食物库」模式完全离线；想用 AI 识别照片，再在设置里配置自己的密钥。</li>
+          <li><strong>我的数据在哪？</strong> 全部在本地：桌面版存应用配置目录，在线版存浏览器 IndexedDB，可随时导出 JSON 备份。</li>
+        </ul>
+      </section>
+
+      <footer>
+        Calorie Studio · <a href="https://github.com/LEEJX9527/01">LEEJX9527/01</a> · 营养数据为《中国食物成分表》近似值，仅供日常参考
+      </footer>
+    </div>
+
+    <script>
+      // 最新版本解析：GitHub Releases 列表 API → 按后缀特征匹配资产；
+      // 失败/无 release 时按钮保持指向 Releases 页（页面永远可用）
+      ;(function () {
+        var API = 'https://api.github.com/repos/LEEJX9527/01/releases?per_page=20'
+        var PATTERNS = { mac: /_aarch64\.dmg$/i, win: /_x64-setup\.exe$/i }
+        var RELEASES_URL = 'https://github.com/LEEJX9527/01/releases'
+
+        function detect() {
+          var ua = navigator.userAgent
+          if (/iphone|ipad|ipod|android|mobile/i.test(ua)) return null
+          if (/windows/i.test(ua)) return 'win'
+          if (/mac os x|macintosh/i.test(ua)) return 'mac'
+          return null
+        }
+
+        function fmtSize(n) {
+          return n > 0 ? '约 ' + (n / 1024 / 1024).toFixed(1) + ' MB' : ''
+        }
+
+        function apply(release) {
+          var byKind = {}
+          for (var i = 0; i < release.assets.length; i++) {
+            var a = release.assets[i]
+            for (var k in PATTERNS) {
+              if (PATTERNS[k].test(a.name) && !byKind[k]) byKind[k] = a
+            }
+          }
+          var els = document.querySelectorAll('[data-asset]')
+          for (var j = 0; j < els.length; j++) {
+            var el = els[j], kind = el.getAttribute('data-asset')
+            if (byKind[kind]) {
+              el.href = byKind[kind].url
+              var s = document.querySelector('[data-size="' + kind + '"]')
+              if (s) s.textContent = fmtSize(byKind[kind].size)
+            }
+          }
+          var hero = document.getElementById('hero-btn')
+          var os = detect()
+          if (os && byKind[os]) {
+            hero.textContent = '下载 ' + (os === 'mac' ? 'macOS 版' : 'Windows 版')
+            hero.href = byKind[os].url
+          } else {
+            hero.textContent = '打开在线版'
+            hero.href = './'
+          }
+          document.getElementById('ver').textContent =
+            '最新版本 v' + release.version + ' · ' + release.date
+        }
+
+        fetch(API, { headers: { Accept: 'application/vnd.github+json' }, signal: AbortSignal.timeout(8000) })
+          .then(function (r) { return r.ok ? r.json() : null })
+          .then(function (list) {
+            if (!Array.isArray(list)) throw new Error('no releases')
+            for (var i = 0; i < list.length; i++) {
+              var rel = list[i]
+              if (rel.draft === true) continue
+              if (typeof rel.tag_name !== 'string' || rel.tag_name.indexOf('v') !== 0) continue
+              var assets = (rel.assets || []).map(function (a) {
+                return { name: a.name, url: a.browser_download_url, size: a.size || 0 }
+              })
+              if (!assets.length) continue
+              apply({
+                version: rel.tag_name.slice(1),
+                date: rel.published_at ? rel.published_at.slice(0, 10) : '',
+                assets: assets,
+              })
+              return
+            }
+            throw new Error('no v* release')
+          })
+          .catch(function () {
+            var hero = document.getElementById('hero-btn')
+            hero.textContent = '前往 Releases 下载'
+            hero.href = RELEASES_URL
+          })
+      })()
+    </script>
+  </body>
+</html>
